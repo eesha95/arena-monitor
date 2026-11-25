@@ -1021,7 +1021,36 @@ def start_jobs():
 # ----------------------------------------------------------------------------- HTTP server
 MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
         ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon",
-        ".json": "application/json"}
+        ".json": "application/json", ".jpg": "image/jpeg", ".webp": "image/webp"}
+
+
+PAGES = {"/": "/landing.html", "/app": "/index.html", "/sign-in": "/sign-in.html"}
+
+
+def public_stats():
+    """Counts only (no feed content) for the public landing page. Every number comes from live data."""
+    if SERVERLESS:
+        ensure_fresh(budget=8)
+    with LOCK:
+        st = dict(STATE)
+    now = int(time.time())
+    news = st.get("news") or []
+    players = [r for r in (st.get("steam_players") or []) if r.get("now")]
+    top = max(players, key=lambda r: r["now"]) if players else None
+    lol = [m for m in (st.get("lol_schedule") or []) if m.get("state") == "completed" and (m.get("start") or 0) >= now - 86400]
+    dota = [m for m in (st.get("dota_results") or []) if (m.get("end") or 0) >= now - 86400]
+    dl = st.get("dota_live") or {}
+    srcs = sources_payload()
+    return {
+        "sources_ok": sum(1 for x in srcs if x["ok"]), "sources_total": len(srcs),
+        "headlines_24h": sum(1 for i in news if i["ts"] >= now - 86400),
+        "signals_24h": sum(1 for i in news if i["ts"] >= now - 86400 and i["signals"]),
+        "matches_24h": len(lol) + len(dota),
+        "live_games": len(dl.get("pro") or []) + len(dl.get("top_pubs") or []),
+        "steam_players_tracked": sum(r["now"] for r in players),
+        "top_game": {"name": top["name"], "players": top["now"]} if top else None,
+        "updated": now,
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1075,9 +1104,10 @@ class Handler(BaseHTTPRequestHandler):
                 threading.Thread(target=run_job, args=(sid,), daemon=True).start()
                 return self._send(202, '{"queued":true}')
             return self._send(404, '{"error":"unknown source"}')
-        # static
-        if p == "/":
-            p = "/index.html"
+        if p == "/api/public":
+            return self._send(200, json.dumps(public_stats()))
+        # pages: landing at /, dashboard at /app, sign-in at /sign-in
+        p = PAGES.get(p.rstrip("/") or "/", p)
         fp = os.path.normpath(os.path.join(STATIC, p.lstrip("/")))
         if not fp.startswith(STATIC) or not os.path.isfile(fp):
             return self._send(404, "not found", "text/plain")

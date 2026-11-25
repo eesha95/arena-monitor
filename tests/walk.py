@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 
-URL = os.environ.get("ARENA_URL", "http://localhost:8090")
+URL = os.environ.get("ARENA_URL", "http://localhost:8090/app")
 # Call the native binary directly: going through agent-browser.cmd lets cmd.exe mangle the JS quoting.
 _NATIVE = os.path.join(os.environ.get("APPDATA", ""), "npm", "node_modules", "agent-browser", "bin",
                        "agent-browser-win32-x64.exe")

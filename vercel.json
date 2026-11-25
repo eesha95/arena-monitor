@@ -5,8 +5,13 @@
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/", "destination": "/static/index.html" },
+    { "source": "/", "destination": "/static/landing.html" },
+    { "source": "/app", "destination": "/static/index.html" },
+    { "source": "/sign-in", "destination": "/static/sign-in.html" },
+    { "source": "/img/(.*)", "destination": "/static/img/$1" },
     { "source": "/app.js", "destination": "/static/app.js" },
-    { "source": "/style.css", "destination": "/static/style.css" }
+    { "source": "/style.css", "destination": "/static/style.css" },
+    { "source": "/landing.css", "destination": "/static/landing.css" },
+    { "source": "/landing.js", "destination": "/static/landing.js" }
   ]
 }
