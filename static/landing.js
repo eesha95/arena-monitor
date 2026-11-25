@@ -35,4 +35,24 @@
   }
   load();
   setInterval(load, 120000);
+
+  // Offer only the sign-in methods that are switched on in the Clerk instance.
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    const m = cfg && cfg.methods;
+    if (!cfg.authEnabled) {
+      document.querySelectorAll('[data-provider]').forEach(a => a.remove());
+      const box = document.querySelector('.auth-buttons');
+      if (box) box.innerHTML = '<a class="btn btn-primary" href="/app">Open the dashboard</a>';
+      return;
+    }
+    if (!m) return;
+    const on = { google: m.social.includes('google'), discord: m.social.includes('discord'),
+                 email: m.password || m.emailCode || m.emailLink };
+    document.querySelectorAll('[data-provider]').forEach(a => { if (!on[a.dataset.provider]) a.remove(); });
+    const names = [on.google && 'Google', on.discord && 'Discord',
+      on.email && (m.password ? 'your email and password' : m.emailCode ? 'a one-time code sent to your email' : 'a sign-in link sent to your email')]
+      .filter(Boolean);
+    const how = document.getElementById('howSignIn');
+    if (how && names.length) how.textContent = 'Use ' + (names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1]) + '.';
+  }).catch(() => {});
 })();

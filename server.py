@@ -990,6 +990,34 @@ def rs256_verify(signing_input, sig, n, e):
     return hmac.compare_digest(m, expected)
 
 
+_methods = {"v": None, "at": 0}
+
+
+def clerk_methods():
+    """Sign-in methods actually switched on in the Clerk instance (public /v1/environment), cached 5 min,
+    so the pages only offer what works. None if it cannot be read."""
+    if not AUTH_ON:
+        return None
+    if _methods["v"] is not None and time.time() - _methods["at"] < 300:
+        return _methods["v"]
+    try:
+        d = fetch_json("https://%s/v1/environment" % clerk_frontend_api(), timeout=8)
+        us = d.get("user_settings") or {}
+        social = [k.replace("oauth_", "") for k, v in (us.get("social") or {}).items() if v.get("enabled")]
+        attrs = us.get("attributes") or {}
+        email = attrs.get("email_address") or {}
+        pw = attrs.get("password") or {}
+        v = {"social": sorted(social),
+             "emailCode": bool(email.get("enabled")) and "email_code" in (email.get("first_factors") or []),
+             "emailLink": bool(email.get("enabled")) and "email_link" in (email.get("first_factors") or []),
+             "password": bool(pw.get("enabled")),
+             "appName": (d.get("display_config") or {}).get("application_name")}
+        _methods.update(v=v, at=time.time())
+        return v
+    except Exception:
+        return _methods["v"]
+
+
 def verify_clerk_token(token, origin, key_lookup=None, now=None, leeway=5):
     """Returns the claims dict, or raises ValueError with the reason."""
     parts = (token or "").split(".")
@@ -1194,7 +1222,8 @@ class Handler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(u.query)
         if p == "/api/config":
             return self._send(200, json.dumps({"authEnabled": AUTH_ON, "publishableKey": CLERK_PK if AUTH_ON else None,
-                                               "frontendApi": clerk_frontend_api() if AUTH_ON else None}))
+                                               "frontendApi": clerk_frontend_api() if AUTH_ON else None,
+                                               "methods": clerk_methods()}))
         if p in ("/api/state", "/api/stream", "/api/series", "/api/refresh") and self._authorized(query):
             return
         if p == "/api/state":

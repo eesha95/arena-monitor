@@ -39,9 +39,9 @@
       <p class="lede">Arena Monitor watches esports results, Steam player counts, patches and games-industry news from 20 public sources.
         It tags each item by game, signal and place, and every item links back to its source.</p>
       <div class="auth-buttons">
-        <a class="btn btn-provider" href="/sign-in?with=google"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.7 3.9-5.5 3.9-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.3 14.6 2.3 12 2.3 6.6 2.3 2.3 6.6 2.3 12s4.3 9.7 9.7 9.7c5.6 0 9.3-3.9 9.3-9.5 0-.6-.1-1.1-.2-1.6H12z"/></svg>Continue with Google</a>
-        <a class="btn btn-provider" href="/sign-in?with=discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#5865F2" d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 3a19.7 19.7 0 0 0-4.9 1.5C.7 9.1-.2 13.6.3 18a19.9 19.9 0 0 0 6 3l1.3-2.1a12.9 12.9 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.8 19.8 0 0 0 6-3c.5-5.1-.8-9.5-3.8-13.6zM8.5 15.3c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm7 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg>Continue with Discord</a>
-        <a class="btn btn-provider" href="/sign-in?with=email"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm9 7.2L4.4 7H4v.3l8 5.4 8-5.4V7h-.4L12 12.2z"/></svg>Continue with email</a>
+        <a class="btn btn-provider" data-provider="google" href="/sign-in?with=google"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.7 3.9-5.5 3.9-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.3 14.6 2.3 12 2.3 6.6 2.3 2.3 6.6 2.3 12s4.3 9.7 9.7 9.7c5.6 0 9.3-3.9 9.3-9.5 0-.6-.1-1.1-.2-1.6H12z"/></svg>Continue with Google</a>
+        <a class="btn btn-provider" data-provider="discord" href="/sign-in?with=discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#5865F2" d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 3a19.7 19.7 0 0 0-4.9 1.5C.7 9.1-.2 13.6.3 18a19.9 19.9 0 0 0 6 3l1.3-2.1a12.9 12.9 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.8 19.8 0 0 0 6-3c.5-5.1-.8-9.5-3.8-13.6zM8.5 15.3c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm7 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg>Continue with Discord</a>
+        <a class="btn btn-provider" data-provider="email" href="/sign-in?with=email"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm9 7.2L4.4 7H4v.3l8 5.4 8-5.4V7h-.4L12 12.2z"/></svg>Continue with email</a>
       </div>
       <p class="fine">Sign in to open the live dashboard. We only use your account to sign you in.</p>
     </div>
@@ -88,7 +88,7 @@
   <section class="section" id="how">
     <h2>How it works</h2>
     <ol class="steps">
-      <li><span>1</span><h3>Sign in</h3><p>Use Google, Discord or a one-time code sent to your email.</p></li>
+      <li><span>1</span><h3>Sign in</h3><p id="howSignIn">Use one of the sign-in options at the top of this page.</p></li>
       <li><span>2</span><h3>Pick a view</h3><p>Choose your role's view, add teams to your watchlist, and filter by game, region and time.</p></li>
       <li><span>3</span><h3>Act on cited signals</h3><p>Open any item at its source. Numbers on screen come from live checks, and estimates are labelled.</p></li>
     </ol>
