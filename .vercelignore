@@ -1,0 +1,6 @@
+phasedoc/
+tests/
+start.cmd
+__pycache__/
+*.db
+*.log

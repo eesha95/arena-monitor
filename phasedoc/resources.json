@@ -1,0 +1,12 @@
+[
+  {"group": "Running", "label": "Arena Monitor (app)", "href": "http://localhost:8090/"},
+  {"group": "Running", "label": "Trackdoc hub", "href": "http://127.0.0.1:7000/?tab=projects"},
+  {"group": "Phasedoc", "label": "Plan of record", "path": "C:\\Users\\eesha\\OneDrive\\Desktop\\Obsidian\\FDE projects\\eesha\\phasedocs\\arena-monitor\\PHASEDOC.md"},
+  {"group": "Phasedoc", "label": "Architecture", "path": "C:\\Users\\eesha\\OneDrive\\Desktop\\Obsidian\\FDE projects\\eesha\\phasedocs\\arena-monitor\\ARCHITECTURE.md"},
+  {"group": "Phasedoc", "label": "Plan script", "path": "C:\\Users\\eesha\\OneDrive\\Desktop\\Obsidian\\FDE projects\\wm\\phasedoc\\plan.py", "note": "python plan.py tree | tick <id> | part <id> | note <id> <text>"},
+  {"group": "Phasedoc", "label": "Progress log", "path": "C:\\Users\\eesha\\OneDrive\\Desktop\\Obsidian\\FDE projects\\eesha\\phasedocs\\arena-monitor\\PROGRESS.md"},
+  {"group": "Code", "label": "Project folder", "path": "C:\\Users\\eesha\\OneDrive\\Desktop\\Obsidian\\FDE projects\\wm"},
+  {"group": "Code", "label": "Tests", "path": "C:\\Users\\eesha\\OneDrive\\Desktop\\Obsidian\\FDE projects\\wm\\tests", "note": "unittest (offline), live_check.py, walk.py"},
+  {"group": "Code", "label": "Runtime data", "path": "C:\\Users\\eesha\\AppData\\Local\\ArenaMonitor", "note": "monitor.db, outside OneDrive"},
+  {"group": "Spec", "label": "worldmonitorgaming.docx", "path": "C:\\Users\\eesha\\Downloads\\worldmonitorgaming.docx"}
+]

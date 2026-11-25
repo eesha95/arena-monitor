@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+# runtime data (lives in %LOCALAPPDATA%\ArenaMonitor locally, /tmp on Vercel)
+data/
+*.db
+*.db-shm
+*.db-wal
+*.log
+# hand-labelling sheet: contains copied publisher headlines
+tests/labels.csv
+# local tooling
+.vercel/
+.env*
