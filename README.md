@@ -75,6 +75,22 @@ It falls back to a 1 h linear trend when there is less than 24 h of history. The
 The forecast is drawn only when its backtest error is lower than the "same as now" baseline. Otherwise the tile says why it is hidden.
 It is labelled as a model estimate in the UI.
 
+## Pages and sign-in
+
+| Path | What | Access |
+|---|---|---|
+| `/` | Landing page with live counts from `/api/public` | public |
+| `/sign-in` | Clerk sign-in (Google, Discord, email code: switched on in the Clerk dashboard) | public |
+| `/app` | The dashboard | signed in |
+| `/api/state`, `/api/stream`, `/api/series`, `/api/refresh` | Dashboard data | signed in (Clerk session token) |
+| `/api/public`, `/api/config` | Counts only; Clerk publishable key | public |
+
+Sign-in is on only when a Clerk publishable key is set (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, provisioned by the Vercel
+Marketplace Clerk integration, or `CLERK_PUBLISHABLE_KEY`). Without one, the local app works as before, with no sign-in.
+The browser sends the Clerk session token as `Authorization: Bearer`. The SSE stream gets it as `?token=`.
+The server verifies the RS256 signature against the instance JWKS (stdlib only) and checks `exp`, `nbf`, `iss`, `azp`
+(it must match the site's origin) and `sts`. `ARENA_AUTH=0` turns sign-in off even when a key is set.
+
 ## Deploy on Vercel
 
 `vercel.json` + `api/index.py` run the same request handler as a Vercel Python Function in serverless mode
