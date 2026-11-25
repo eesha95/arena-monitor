@@ -167,3 +167,109 @@ class DataDir(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ClerkTokens(unittest.TestCase):
+    """RS256 verification of Clerk session tokens, with a test RSA key generated here (offline)."""
+
+    @staticmethod
+    def _prime(bits, rnd):
+        def probable(n):
+            if n % 2 == 0:
+                return False
+            d, r = n - 1, 0
+            while d % 2 == 0:
+                d //= 2
+                r += 1
+            for _ in range(20):
+                a = rnd.randrange(2, n - 1)
+                x = pow(a, d, n)
+                if x in (1, n - 1):
+                    continue
+                for _ in range(r - 1):
+                    x = pow(x, 2, n)
+                    if x == n - 1:
+                        break
+                else:
+                    return False
+            return True
+        while True:
+            c = rnd.getrandbits(bits) | (1 << (bits - 1)) | 1
+            if probable(c):
+                return c
+
+    @classmethod
+    def setUpClass(cls):
+        import random
+        rnd = random.Random(7)
+        e = 65537
+        while True:
+            p, q = cls._prime(512, rnd), cls._prime(512, rnd)
+            phi = (p - 1) * (q - 1)
+            if p != q and phi % e:
+                break
+        cls.n, cls.e, cls.d = p * q, e, pow(e, -1, phi)
+        cls.now = 1_800_000_000
+
+    def _token(self, claims, alg="RS256", key=None):
+        import base64
+        import hashlib
+        b = lambda o: base64.urlsafe_b64encode(json.dumps(o).encode()).rstrip(b"=").decode()
+        si = b({"alg": alg, "kid": "k1", "typ": "JWT"}) + "." + b(claims)
+        k = (self.n.bit_length() + 7) // 8
+        t = S._SHA256_PREFIX + hashlib.sha256(si.encode()).digest()
+        em = b"\x00\x01" + b"\xff" * (k - len(t) - 3) + b"\x00" + t
+        n, d = key or (self.n, self.d)
+        sig = pow(int.from_bytes(em, "big"), d, n).to_bytes(k, "big")
+        return si + "." + base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+
+    def _claims(self, **kw):
+        c = {"sub": "user_1", "exp": self.now + 60, "nbf": self.now - 5, "iat": self.now - 5,
+             "azp": "https://arena.example"}
+        c.update(kw)
+        return c
+
+    def _verify(self, tok, origin="https://arena.example"):
+        return S.verify_clerk_token(tok, origin, key_lookup=lambda kid: (self.n, self.e) if kid == "k1" else None,
+                                    now=self.now)
+
+    def test_valid(self):
+        self.assertEqual(self._verify(self._token(self._claims()))["sub"], "user_1")
+
+    def test_tampered_payload(self):
+        import base64
+        h, _, sig = self._token(self._claims()).split(".")
+        evil = base64.urlsafe_b64encode(json.dumps(self._claims(sub="admin")).encode()).rstrip(b"=").decode()
+        with self.assertRaisesRegex(ValueError, "signature"):
+            self._verify(h + "." + evil + "." + sig)
+
+    def test_wrong_key(self):
+        import random
+        rnd = random.Random(99)
+        p, q = self._prime(512, rnd), self._prime(512, rnd)
+        other = (p * q, pow(65537, -1, (p - 1) * (q - 1)))
+        with self.assertRaises(ValueError):
+            self._verify(self._token(self._claims(), key=other))
+
+    def test_expired_and_not_yet_valid(self):
+        with self.assertRaisesRegex(ValueError, "expired"):
+            self._verify(self._token(self._claims(exp=self.now - 60)))
+        with self.assertRaisesRegex(ValueError, "not yet"):
+            self._verify(self._token(self._claims(nbf=self.now + 60)))
+
+    def test_wrong_origin(self):
+        with self.assertRaisesRegex(ValueError, "authorized party"):
+            self._verify(self._token(self._claims()), origin="https://evil.example")
+
+    def test_alg_none_rejected(self):
+        with self.assertRaisesRegex(ValueError, "alg"):
+            self._verify(self._token(self._claims(), alg="none"))
+
+    def test_pending_session(self):
+        with self.assertRaisesRegex(ValueError, "pending"):
+            self._verify(self._token(self._claims(sts="pending")))
+
+    def test_frontend_api_from_publishable_key(self):
+        import base64
+        pk = "pk_test_" + base64.b64encode(b"sky-umbrella-1.clerk.accounts.dev$").decode()
+        self.assertEqual(S.clerk_frontend_api(pk), "sky-umbrella-1.clerk.accounts.dev")

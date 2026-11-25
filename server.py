@@ -928,6 +928,96 @@ if AI_ON:
         return len(items)
 
 
+# ----------------------------------------------------------------------------- sign-in (Clerk)
+# Sign-in is enforced only when a Clerk publishable key is set (NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, as the Vercel
+# Marketplace provisions it, or CLERK_PUBLISHABLE_KEY). The browser sends the Clerk session token as
+# "Authorization: Bearer <jwt>" (or ?token= for the SSE stream). The token is verified here without extra packages:
+# RS256 signature against the instance's JWKS, then exp / nbf / iss / azp / sts, as Clerk's manual-verification guide says.
+import base64
+import hmac
+
+CLERK_PK = os.environ.get("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY") or os.environ.get("CLERK_PUBLISHABLE_KEY") or ""
+AUTH_ON = bool(CLERK_PK) and os.environ.get("ARENA_AUTH", "1") != "0"
+
+
+def _b64url(s):
+    s = s if isinstance(s, bytes) else s.encode()
+    return base64.urlsafe_b64decode(s + b"=" * (-len(s) % 4))
+
+
+def clerk_frontend_api(pk=None):
+    """pk_test_<base64(frontendApi + '$')> -> frontend API host."""
+    pk = pk or CLERK_PK
+    try:
+        enc = pk.split("_", 2)[2]
+        return base64.b64decode(enc + "=" * (-len(enc) % 4)).decode().rstrip("$")
+    except Exception:
+        return ""
+
+
+_jwks = {"keys": {}, "at": 0}
+_jwks_lock = threading.Lock()
+
+
+def _jwk_key(kid):
+    now = time.time()
+    with _jwks_lock:
+        fresh = now - _jwks["at"] < 3600
+        if kid in _jwks["keys"] and fresh:
+            return _jwks["keys"][kid]
+        if fresh and now - _jwks["at"] < 60:  # unknown kid: refetch at most once a minute
+            return _jwks["keys"].get(kid)
+        d = fetch_json("https://%s/.well-known/jwks.json" % clerk_frontend_api(), timeout=10)
+        _jwks["keys"] = {k["kid"]: (int.from_bytes(_b64url(k["n"]), "big"), int.from_bytes(_b64url(k["e"]), "big"))
+                         for k in d.get("keys", []) if k.get("kty") == "RSA"}
+        _jwks["at"] = now
+        return _jwks["keys"].get(kid)
+
+
+_SHA256_PREFIX = bytes.fromhex("3031300d060960864801650304020105000420")
+
+
+def rs256_verify(signing_input, sig, n, e):
+    """RSASSA-PKCS1-v1_5 with SHA-256 (RFC 8017, 8.2.2)."""
+    k = (n.bit_length() + 7) // 8
+    if len(sig) != k:
+        return False
+    m = pow(int.from_bytes(sig, "big"), e, n).to_bytes(k, "big")
+    t = _SHA256_PREFIX + hashlib.sha256(signing_input).digest()
+    if k < len(t) + 11:
+        return False
+    expected = b"\x00\x01" + b"\xff" * (k - len(t) - 3) + b"\x00" + t
+    return hmac.compare_digest(m, expected)
+
+
+def verify_clerk_token(token, origin, key_lookup=None, now=None, leeway=5):
+    """Returns the claims dict, or raises ValueError with the reason."""
+    parts = (token or "").split(".")
+    if len(parts) != 3:
+        raise ValueError("malformed token")
+    header, claims = json.loads(_b64url(parts[0])), json.loads(_b64url(parts[1]))
+    if header.get("alg") != "RS256":
+        raise ValueError("unexpected alg")
+    key = (key_lookup or _jwk_key)(header.get("kid"))
+    if not key:
+        raise ValueError("unknown signing key")
+    if not rs256_verify((parts[0] + "." + parts[1]).encode(), _b64url(parts[2]), *key):
+        raise ValueError("bad signature")
+    now = int(now if now is not None else time.time())
+    if claims.get("exp", 0) < now - leeway:
+        raise ValueError("expired")
+    if claims.get("nbf", 0) > now + leeway:
+        raise ValueError("not yet valid")
+    fapi = clerk_frontend_api()
+    if fapi and claims.get("iss") and claims["iss"].rstrip("/") != "https://" + fapi:
+        raise ValueError("wrong issuer")
+    if claims.get("azp") and origin and claims["azp"].rstrip("/") != origin.rstrip("/"):
+        raise ValueError("wrong authorized party")
+    if claims.get("sts") == "pending":
+        raise ValueError("session pending")
+    return claims
+
+
 # ----------------------------------------------------------------------------- scheduler
 def run_job(sid):
     s = SOURCES[sid]
@@ -1072,9 +1162,41 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _origin(self):
+        host = self.headers.get("x-forwarded-host") or self.headers.get("Host") or ""
+        proto = self.headers.get("x-forwarded-proto") or ("http" if host.startswith(("localhost", "127.0.0.1")) else "https")
+        return "%s://%s" % (proto, host) if host else ""
+
+    def _authorized(self, query):
+        """None when allowed; otherwise sends 401 and returns True."""
+        if not AUTH_ON:
+            return None
+        h = self.headers.get("Authorization") or ""
+        token = h[7:].strip() if h.lower().startswith("bearer ") else (query.get("token", [""])[0])
+        if not token:
+            for part in (self.headers.get("Cookie") or "").split(";"):
+                k, _, v = part.strip().partition("=")
+                if k == "__session":
+                    token = v
+        try:
+            verify_clerk_token(token, self._origin())
+            return None
+        except ValueError as e:
+            self._send(401, json.dumps({"error": "sign-in required", "reason": str(e)[:80]}))
+            return True
+        except Exception:
+            self._send(401, json.dumps({"error": "sign-in required", "reason": "invalid token"}))
+            return True
+
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         p = u.path
+        query = urllib.parse.parse_qs(u.query)
+        if p == "/api/config":
+            return self._send(200, json.dumps({"authEnabled": AUTH_ON, "publishableKey": CLERK_PK if AUTH_ON else None,
+                                               "frontendApi": clerk_frontend_api() if AUTH_ON else None}))
+        if p in ("/api/state", "/api/stream", "/api/series", "/api/refresh") and self._authorized(query):
+            return
         if p == "/api/state":
             if SERVERLESS:
                 ensure_fresh()

@@ -179,3 +179,10 @@ footer { color: var(--muted); font-size: 11px; padding: 6px 16px 18px; }
 
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,59,92,.55); } 70% { box-shadow: 0 0 0 8px rgba(255,59,92,0); } 100% { box-shadow: 0 0 0 0 rgba(255,59,92,0); } }
 @keyframes flash { 0% { border-color: var(--accent2); } 100% { border-color: var(--line); } }
+
+/* signed-in account in the sidebar card */
+.acct { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 2px; }
+.acct-name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-mail { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-out { margin-top: 6px; background: transparent; border: 0; padding: 0; color: var(--accent2); font-size: 12px; }
+.acct-out:hover { text-decoration: underline; }

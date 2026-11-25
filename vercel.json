@@ -1,17 +1,51 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/index.py": { "maxDuration": 60, "includeFiles": "server.py" }
+    "api/index.py": {
+      "maxDuration": 60,
+      "includeFiles": "server.py"
+    }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/", "destination": "/static/landing.html" },
-    { "source": "/app", "destination": "/static/index.html" },
-    { "source": "/sign-in", "destination": "/static/sign-in.html" },
-    { "source": "/img/(.*)", "destination": "/static/img/$1" },
-    { "source": "/app.js", "destination": "/static/app.js" },
-    { "source": "/style.css", "destination": "/static/style.css" },
-    { "source": "/landing.css", "destination": "/static/landing.css" },
-    { "source": "/landing.js", "destination": "/static/landing.js" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/",
+      "destination": "/static/landing.html"
+    },
+    {
+      "source": "/app",
+      "destination": "/static/index.html"
+    },
+    {
+      "source": "/sign-in",
+      "destination": "/static/sign-in.html"
+    },
+    {
+      "source": "/img/(.*)",
+      "destination": "/static/img/$1"
+    },
+    {
+      "source": "/app.js",
+      "destination": "/static/app.js"
+    },
+    {
+      "source": "/style.css",
+      "destination": "/static/style.css"
+    },
+    {
+      "source": "/landing.css",
+      "destination": "/static/landing.css"
+    },
+    {
+      "source": "/landing.js",
+      "destination": "/static/landing.js"
+    },
+    {
+      "source": "/auth.js",
+      "destination": "/static/auth.js"
+    }
   ]
 }

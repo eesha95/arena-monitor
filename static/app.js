@@ -354,7 +354,7 @@ const TILES = {
     title: 'Sources & health', why: 'The source register: each feed, its poll interval, last success, item count and terms note. A red row means the last fetch failed. The server tries again within 5 minutes.',
     render(el) {
       const src = S.data.sources || [];
-      setTimeout(() => el.querySelectorAll('[data-refresh]').forEach(b => b.onclick = () => { fetch('/api/refresh?source=' + encodeURIComponent(b.dataset.refresh)); b.textContent = '…'; }));
+      setTimeout(() => el.querySelectorAll('[data-refresh]').forEach(b => b.onclick = () => { apiFetch('/api/refresh?source=' + encodeURIComponent(b.dataset.refresh)); b.textContent = '…'; }));
       return `<table><tr><th>Source</th><th>Every</th><th>Last OK</th><th class="num">Items</th><th></th></tr>
         ${src.map(s => `<tr title="${esc(s.note)}${s.error ? '\n' + esc(s.error) : ''}"><td><span class="status-dot status-${s.ok === false ? 'major' : s.ok ? 'none' : 'unknown'}"></span>${esc(s.name)}
         ${s.error ? `<div class="muted" style="font-size:10px">${esc(s.error).slice(0, 90)}${s.next_try ? ` · retry ${rel(s.next_try)}` : ''}</div>` : `<div class="muted" style="font-size:10px">${esc(s.note)}</div>`}</td>
@@ -385,7 +385,7 @@ function km(a, b, c, d) {
 async function loadBigChart(el, key, f) {
   if (!el) return;
   try {
-    const pts = await (await fetch(`/api/series?key=${encodeURIComponent(key)}&hours=168`)).json();
+    const pts = await (await apiFetch(`/api/series?key=${encodeURIComponent(key)}&hours=168`)).json();
     if (pts.length < 2) { el.textContent = 'Not enough history yet. Samples are stored every 5 minutes.'; return; }
     const W = 600, H = 150, xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
     if (f) { xs.push(f.at); ys.push(f.high, f.low); }
@@ -680,8 +680,31 @@ document.querySelectorAll('[data-theme-pref]').forEach(b => b.onclick = () => { 
 if (darkMq) darkMq.addEventListener('change', () => { if (themePref() === 'auto') applyTheme('auto'); });
 applyTheme(themePref());
 
+// Sign-in: every data request carries the Clerk session token when sign-in is on (see auth.js).
+let AUTH = { enabled: false, token: async () => null };
+async function apiFetch(url, opts = {}) {
+  const t = await AUTH.token();
+  const headers = Object.assign({}, opts.headers || {}, t ? { Authorization: 'Bearer ' + t } : {});
+  const r = await fetch(url, Object.assign({}, opts, { headers }));
+  if (r.status === 401 && AUTH.enabled) { location.replace('/sign-in'); throw new Error('signed out'); }
+  return r;
+}
+function renderAccount() {
+  const box = $('#account'); if (!box) return;
+  if (!AUTH.enabled || !AUTH.clerk.user) { box.hidden = true; return; }
+  const u = AUTH.clerk.user;
+  const email = u.primaryEmailAddress ? u.primaryEmailAddress.emailAddress : '';
+  box.hidden = false;
+  box.innerHTML = `<div class="acct-name">${esc(u.fullName || u.username || email || 'Signed in')}</div>` +
+    (email && (u.fullName || u.username) ? `<div class="acct-mail">${esc(email)}</div>` : '') +
+    `<button type="button" id="signOut" class="acct-out">Sign out</button>`;
+  $('#signOut').onclick = () => AUTH.signOut();
+}
 async function boot() {
-  const st = await (await fetch('/api/state')).json();
+  AUTH = await window.AM_AUTH;
+  if (AUTH.enabled && !AUTH.clerk.isSignedIn) { location.replace('/sign-in'); return; }
+  renderAccount();
+  const st = await (await apiFetch('/api/state')).json();
   S.lexicon = st.lexicon; delete st.lexicon;
   S.data = st;
   fillGameSelect();
@@ -695,18 +718,23 @@ function poll() {
   live.className = 'live on'; ml.className = 'mlive on'; txt.textContent = 'polling · 60 s';
   setInterval(async () => {
     try {
-      const st = await (await fetch('/api/state')).json();
+      const st = await (await apiFetch('/api/state')).json();
       for (const [k, v] of Object.entries(st)) if (!SKIP_KEYS.has(k) && JSON.stringify(v) !== JSON.stringify(S.data[k])) onUpdate(k, v);
       live.className = 'live on'; ml.className = 'mlive on'; txt.textContent = 'polling · 60 s';
     } catch (e) { live.className = 'live off'; ml.className = 'mlive off'; txt.textContent = 'offline, retrying'; }
   }, 60000);
 }
-function connect() {
+async function connect() {
   const live = $('#live'), txt = $('#liveText');
-  const es = new EventSource('/api/stream');
+  // EventSource cannot send headers, so the (short-lived) token rides in the URL; reconnects fetch a fresh one.
+  const t = await AUTH.token();
+  const es = new EventSource('/api/stream' + (t ? '?token=' + encodeURIComponent(t) : ''));
   const ml = $('#mlive');
   es.onopen = () => { live.className = 'live on'; ml.className = 'mlive on'; txt.textContent = 'live'; };
-  es.onerror = () => { live.className = 'live off'; ml.className = 'mlive off'; txt.textContent = 'reconnecting'; };
+  es.onerror = () => {
+    live.className = 'live off'; ml.className = 'mlive off'; txt.textContent = 'reconnecting';
+    if (AUTH.enabled) { es.close(); setTimeout(connect, 3000); }
+  };
   es.onmessage = ev => { try { const m = JSON.parse(ev.data); onUpdate(m.key, m.data); } catch (e) { console.error(e); } };
 }
 setInterval(() => {
